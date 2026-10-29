@@ -666,7 +666,7 @@
         <div class="header-main">
             <div class="header-title">
                 <h1>Gestão Imobiliária Portátil</h1>
-                <sub>Banco de Dados Local (IndexedDB)</sub>
+                <sub>Banco de Dados Local Persistente (IndexedDB)</sub>
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary" onclick="addNewProperty()">➕ Novo Imóvel</button>
@@ -786,9 +786,40 @@
             properties: [] 
         };
 
+        // SOLUÇÃO 3: VERIFICAÇÃO DETALHADA E SOLICITAÇÃO DE PERSISTÊNCIA DO BANCO
+        async function requestPersistentStorage() {
+            if (navigator.storage && navigator.storage.persist) {
+                try {
+                    // 1. Verifica se já estava marcado como persistente anteriormente
+                    const isAlreadyPersisted = await navigator.storage.persisted();
+                    if (isAlreadyPersisted) {
+                        console.log("✓ O armazenamento JÁ ESTÁ marcado como persistente pelo navegador.");
+                        return true;
+                    }
+
+                    // 2. Solicita a ativação da persistência
+                    const granted = await navigator.storage.persist();
+                    if (granted) {
+                        console.log("✓ Armazenamento persistente ativado com sucesso pelo usuário/navegador!");
+                    } else {
+                        console.warn("⚠️ O navegador manteve o armazenamento como temporário (motivos comuns: arquivo aberto via file:// sem servidor local ou falta de engajamento prévio com o site).");
+                    }
+                    return granted;
+                } catch (error) {
+                    console.error("Erro ao solicitar armazenamento persistente:", error);
+                    return false;
+                }
+            } else {
+                console.warn("⚠️ O seu navegador não possui suporte à API de armazenamento persistente.");
+                return false;
+            }
+        }
+
         // Inicializa o banco de dados e realiza a migração transparente do LocalStorage, caso exista
         async function initDatabase() {
             try {
+                const isPersisted = await requestPersistentStorage();
+
                 const stored = localStorage.getItem('rent_app_data');
                 if (stored) {
                     try {
@@ -809,6 +840,10 @@
                 await refreshLocalState();
                 renderMonthsMenu();
                 await renderContent();
+
+                if (isPersisted) {
+                    showToastCustom("✓ IndexedDB Ativo com Proteção Persistente");
+                }
             } catch (err) {
                 console.error("Erro ao inicializar IndexedDB:", err);
             }
@@ -819,16 +854,20 @@
         }
 
         function showToast() {
-            const toast = document.getElementById('toast');
             const now = new Date();
             const timeStr = now.toTimeString().split(' ')[0];
-            document.getElementById('toast-text').innerText = `✓ Guardado no IndexedDB às ${timeStr}`;
+            showToastCustom(`✓ Guardado no IndexedDB às ${timeStr}`);
+        }
+
+        function showToastCustom(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = msg;
             toast.classList.add('show');
             
             clearTimeout(window.toastTimeout);
             window.toastTimeout = setTimeout(() => {
                 toast.classList.remove('show');
-            }, 1500);
+            }, 2000);
         }
 
         function renderMonthsMenu() {
