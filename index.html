@@ -119,6 +119,79 @@
             transition: border-color 0.3s;
         }
 
+        /* Totalizer Grand Card Styles (Tela Normal) */
+        .grand-total-card {
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            border: 2px solid #1a252f;
+            overflow: hidden;
+        }
+
+        .grand-total-header {
+            background: #1a252f;
+            padding: 14px 20px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--secondary);
+        }
+
+        .grand-total-body {
+            padding: 15px;
+            background: #34495e;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .gt-row {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            padding: 8px 10px;
+            border-bottom: 1px dashed rgba(255,255,255,0.15);
+            align-items: center;
+        }
+
+        .gt-row label {
+            font-weight: 600;
+        }
+
+        .gt-row .gt-val {
+            font-weight: bold;
+            font-size: 1.05rem;
+        }
+
+        .gt-row.deduction label,
+        .gt-row.deduction .gt-val {
+            color: #f1948a;
+        }
+
+        .gt-row.gt-header-row {
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: #bdc3c7;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--secondary);
+            padding-bottom: 6px;
+        }
+
+        .gt-row.gt-total-row {
+            background: var(--secondary);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.15rem;
+            margin-top: 8px;
+            border-bottom: none;
+        }
+
         /* Card Header */
         .card-header {
             background: #f1f2f6;
@@ -197,7 +270,6 @@
             grid-template-columns: 250px 1fr;
         }
 
-        /* Na tela, cada item monetário exibe apenas Rótulo + Valor Principal */
         .form-row.monetary-row {
             grid-template-columns: 250px 1fr;
         }
@@ -218,7 +290,6 @@
             color: #34495e;
         }
 
-        /* Red formatting for deductions */
         .form-row.deduction label {
             color: var(--danger);
         }
@@ -494,6 +565,83 @@
                 font-size: 0.95rem !important;
                 color: #000 !important;
             }
+
+            /* FORMATAÇÃO DO TOTALIZADOR GERAL NO RELATÓRIO PDF */
+            .grand-total-card {
+                page-break-inside: avoid !important;
+                background: white !important;
+                color: #000 !important;
+                border: 2px solid #2c3e50 !important;
+                border-radius: 4px !important;
+                margin-top: 25px !important;
+                box-shadow: none !important;
+            }
+
+            .grand-total-header {
+                background: #2c3e50 !important;
+                color: white !important;
+                padding: 8px 12px !important;
+                font-size: 1.05rem !important;
+            }
+
+            .grand-total-body {
+                background: white !important;
+                padding: 8px 12px !important;
+                gap: 2px !important;
+            }
+
+            .gt-row {
+                display: grid !important;
+                grid-template-columns: 200px 1fr 1fr 1fr !important;
+                gap: 6px !important;
+                padding: 4px 0 !important;
+                border-bottom: 1px solid #eee !important;
+                color: #000 !important;
+                text-align: right !important;
+            }
+
+            .gt-row label {
+                text-align: left !important;
+                font-size: 0.85rem !important;
+                color: #333 !important;
+            }
+
+            .gt-row .gt-val {
+                font-size: 0.85rem !important;
+                color: #000 !important;
+            }
+
+            .gt-row.deduction label,
+            .gt-row.deduction .gt-val {
+                color: #c0392b !important;
+            }
+
+            .gt-row.gt-header-row {
+                display: grid !important;
+                grid-template-columns: 200px 1fr 1fr 1fr !important;
+                gap: 6px !important;
+                border-bottom: 1px solid #999 !important;
+                font-weight: bold !important;
+                font-size: 0.8rem !important;
+                color: #000 !important;
+                text-transform: uppercase !important;
+            }
+
+            .gt-row.gt-total-row {
+                background: #f5f5f5 !important;
+                color: #000 !important;
+                padding: 6px 8px !important;
+                margin-top: 4px !important;
+                border-radius: 3px !important;
+                border-bottom: none !important;
+            }
+
+            .gt-row.gt-total-row label,
+            .gt-row.gt-total-row .gt-val {
+                font-size: 0.95rem !important;
+                font-weight: bold !important;
+                color: #000 !important;
+            }
         }
     </style>
 </head>
@@ -538,6 +686,71 @@
         <!-- Properties dynamic target container -->
         <div id="propertiesContainer">
             <!-- Dynamic Injection -->
+        </div>
+
+        <!-- TOTALIZADOR GERAL DO MÊS (Visível na Tela e no Relatório PDF) -->
+        <div id="grandTotalCard" class="grand-total-card" style="display: none;">
+            <div class="grand-total-header">
+                <span>TOTALIZADOR GERAL DO MÊS (<span id="gtMonthName"></span>)</span>
+                <span id="gtPropertyCount" style="font-size:0.9rem; font-weight:normal;"></span>
+            </div>
+            <div class="grand-total-body">
+                <div class="gt-row gt-header-row">
+                    <div>Item / Descrição</div>
+                    <div>Valor Principal</div>
+                    <div class="p1-col">Pessoa 1 (50%)</div>
+                    <div class="p2-col">Pessoa 2 (50%)</div>
+                </div>
+
+                <div class="gt-row">
+                    <label>Valor do Aluguel (R$)</label>
+                    <div class="gt-val" id="gtRent">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1Rent">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2Rent">0,00</div>
+                </div>
+
+                <div class="gt-row deduction">
+                    <label>Desconto Taxa de Administração (R$)</label>
+                    <div class="gt-val" id="gtAdmin">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1Admin">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2Admin">0,00</div>
+                </div>
+
+                <div class="gt-row">
+                    <label>Energia Elétrica (R$)</label>
+                    <div class="gt-val" id="gtElec">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1Elec">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2Elec">0,00</div>
+                </div>
+
+                <div class="gt-row">
+                    <label>Água (R$)</label>
+                    <div class="gt-val" id="gtWater">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1Water">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2Water">0,00</div>
+                </div>
+
+                <div class="gt-row">
+                    <label>Outras Receitas (R$)</label>
+                    <div class="gt-val" id="gtOthRev">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1OthRev">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2OthRev">0,00</div>
+                </div>
+
+                <div class="gt-row deduction">
+                    <label>Outras Despesas (R$)</label>
+                    <div class="gt-val" id="gtOthExp">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1OthExp">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2OthExp">0,00</div>
+                </div>
+
+                <div class="gt-row gt-total-row">
+                    <label>TOTAL GERAL RECEBIDO (R$)</label>
+                    <div class="gt-val" id="gtTotal">0,00</div>
+                    <div class="gt-val p1-col" id="gtP1Total">0,00</div>
+                    <div class="gt-val p2-col" id="gtP2Total">0,00</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -668,6 +881,10 @@
         function updateDashboardAndTotals() {
             const propertiesInMonth = getVisibleProperties();
 
+            let sumRent = 0, sumAdmin = 0, sumElec = 0, sumWater = 0, sumOthRev = 0, sumOthExp = 0, sumTotal = 0;
+            let sumP1Rent = 0, sumP1Admin = 0, sumP1Elec = 0, sumP1Water = 0, sumP1OthRev = 0, sumP1OthExp = 0, sumP1Total = 0;
+            let sumP2Rent = 0, sumP2Admin = 0, sumP2Elec = 0, sumP2Water = 0, sumP2OthRev = 0, sumP2OthExp = 0, sumP2Total = 0;
+
             propertiesInMonth.forEach(p => {
                 const rent = parseFloat(p.rent) || 0;
                 const adminTax = parseFloat(p.adminTax) || 0;
@@ -677,38 +894,50 @@
                 const otherExp = parseFloat(p.otherExpenses) || 0;
 
                 const computedTotal = rent - adminTax + electricity + water + otherRev - otherExp;
-                
+
+                const rentSplit = splitValue(rent);
+                const adminSplit = splitValue(adminTax);
+                const elecSplit = splitValue(electricity);
+                const waterSplit = splitValue(water);
+                const othRevSplit = splitValue(otherRev);
+                const othExpSplit = splitValue(otherExp);
+                const totalSplit = splitValue(computedTotal);
+
+                // Acumuladores gerais para o Totalizador do Mês
+                sumRent += rent; sumP1Rent += rentSplit.p1; sumP2Rent += rentSplit.p2;
+                sumAdmin += adminTax; sumP1Admin += adminSplit.p1; sumP2Admin += adminSplit.p2;
+                sumElec += electricity; sumP1Elec += elecSplit.p1; sumP2Elec += elecSplit.p2;
+                sumWater += water; sumP1Water += waterSplit.p1; sumP2Water += waterSplit.p2;
+                sumOthRev += otherRev; sumP1OthRev += othRevSplit.p1; sumP2OthRev += othRevSplit.p2;
+                sumOthExp += otherExp; sumP1OthExp += othExpSplit.p1; sumP2OthExp += othExpSplit.p2;
+                sumTotal += computedTotal; sumP1Total += totalSplit.p1; sumP2Total += totalSplit.p2;
+
                 const totalInput = document.getElementById(`total_${p.id}`);
                 if(totalInput) {
                     totalInput.value = formatCurrencyValue(computedTotal);
                 }
 
-                // Divisão exata do Total
-                const totalSplit = splitValue(computedTotal);
                 const p1TotalInput = document.getElementById(`p1_total_${p.id}`);
                 if(p1TotalInput) p1TotalInput.value = formatCurrencyValue(totalSplit.p1);
 
                 const p2TotalInput = document.getElementById(`p2_total_${p.id}`);
                 if(p2TotalInput) p2TotalInput.value = formatCurrencyValue(totalSplit.p2);
 
-                // Divisão exata de cada item monetário
                 const monetaryFields = [
-                    { key: 'rent', val: rent },
-                    { key: 'adminTax', val: adminTax },
-                    { key: 'electricity', val: electricity },
-                    { key: 'water', val: water },
-                    { key: 'otherRevenue', val: otherRev },
-                    { key: 'otherExpenses', val: otherExp }
+                    { key: 'rent', split: rentSplit },
+                    { key: 'adminTax', split: adminSplit },
+                    { key: 'electricity', split: elecSplit },
+                    { key: 'water', split: waterSplit },
+                    { key: 'otherRevenue', split: othRevSplit },
+                    { key: 'otherExpenses', split: othExpSplit }
                 ];
 
                 monetaryFields.forEach(f => {
-                    const split = splitValue(f.val);
-
                     const p1El = document.getElementById(`p1_${f.key}_${p.id}`);
-                    if (p1El) p1El.value = formatCurrencyValue(split.p1);
+                    if (p1El) p1El.value = formatCurrencyValue(f.split.p1);
 
                     const p2El = document.getElementById(`p2_${f.key}_${p.id}`);
-                    if (p2El) p2El.value = formatCurrencyValue(split.p2);
+                    if (p2El) p2El.value = formatCurrencyValue(f.split.p2);
                 });
 
                 const summaryBadge = document.getElementById(`summary_${p.id}`);
@@ -716,6 +945,44 @@
                     summaryBadge.innerText = `Total: R$ ${formatCurrencyValue(computedTotal)}`;
                 }
             });
+
+            // Atualiza o Bloco Totalizador Geral
+            const gtCard = document.getElementById('grandTotalCard');
+            if (propertiesInMonth.length > 0) {
+                gtCard.style.display = 'block';
+                document.getElementById('gtMonthName').innerText = MONTHS[appState.currentMonthIndex];
+                document.getElementById('gtPropertyCount').innerText = `${propertiesInMonth.length} imóvel(is) cadastrado(s)`;
+
+                document.getElementById('gtRent').innerText = formatCurrencyValue(sumRent);
+                document.getElementById('gtP1Rent').innerText = formatCurrencyValue(sumP1Rent);
+                document.getElementById('gtP2Rent').innerText = formatCurrencyValue(sumP2Rent);
+
+                document.getElementById('gtAdmin').innerText = formatCurrencyValue(sumAdmin);
+                document.getElementById('gtP1Admin').innerText = formatCurrencyValue(sumP1Admin);
+                document.getElementById('gtP2Admin').innerText = formatCurrencyValue(sumP2Admin);
+
+                document.getElementById('gtElec').innerText = formatCurrencyValue(sumElec);
+                document.getElementById('gtP1Elec').innerText = formatCurrencyValue(sumP1Elec);
+                document.getElementById('gtP2Elec').innerText = formatCurrencyValue(sumP2Elec);
+
+                document.getElementById('gtWater').innerText = formatCurrencyValue(sumWater);
+                document.getElementById('gtP1Water').innerText = formatCurrencyValue(sumP1Water);
+                document.getElementById('gtP2Water').innerText = formatCurrencyValue(sumP2Water);
+
+                document.getElementById('gtOthRev').innerText = formatCurrencyValue(sumOthRev);
+                document.getElementById('gtP1OthRev').innerText = formatCurrencyValue(sumP1OthRev);
+                document.getElementById('gtP2OthRev').innerText = formatCurrencyValue(sumP2OthRev);
+
+                document.getElementById('gtOthExp').innerText = formatCurrencyValue(sumOthExp);
+                document.getElementById('gtP1OthExp').innerText = formatCurrencyValue(sumP1OthExp);
+                document.getElementById('gtP2OthExp').innerText = formatCurrencyValue(sumP2OthExp);
+
+                document.getElementById('gtTotal').innerText = formatCurrencyValue(sumTotal);
+                document.getElementById('gtP1Total').innerText = formatCurrencyValue(sumP1Total);
+                document.getElementById('gtP2Total').innerText = formatCurrencyValue(sumP2Total);
+            } else {
+                gtCard.style.display = 'none';
+            }
         }
 
         function formatCurrencyValue(num) {
