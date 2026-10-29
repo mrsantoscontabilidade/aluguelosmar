@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Recebimento de Aluguel</title>
+    <!-- Dexie.js CDN para manipulação simplificada e rápida do IndexedDB -->
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3/dist/dexie.min.js"></script>
     <style>
         :root {
             --primary: #2c3e50;
@@ -51,6 +53,13 @@
 
         .header-title h1 {
             font-size: 1.5rem;
+        }
+
+        .header-title sub {
+            font-size: 0.85rem;
+            color: #16a085;
+            font-weight: bold;
+            display: block;
         }
 
         .header-actions {
@@ -657,6 +666,7 @@
         <div class="header-main">
             <div class="header-title">
                 <h1>Gestão Imobiliária Portátil</h1>
+                <sub>Banco de Dados Local (IndexedDB)</sub>
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary" onclick="addNewProperty()">➕ Novo Imóvel</button>
@@ -756,7 +766,7 @@
 
     <!-- Auto-save notification anchor toast -->
     <div id="toast">
-        <span id="toast-text">✓ Salvo automaticamente</span>
+        <span id="toast-text">✓ Guardado no IndexedDB</span>
     </div>
 
     <script>
@@ -765,34 +775,54 @@
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
         ];
 
+        // --- INICIALIZAÇÃO DO BANCO DE DADOS INDEXEDDB (Dexie.js) ---
+        const db = new Dexie("ControleAluguelDB");
+        db.version(1).stores({
+            properties: 'id, date, createdInMonth'
+        });
+
         let appState = {
             currentMonthIndex: new Date().getMonth(),
             properties: [] 
         };
 
-        function loadFromStorage() {
-            const stored = localStorage.getItem('rent_app_data');
-            if (stored) {
-                try {
-                    appState = JSON.parse(stored);
-                    if(!appState.properties) appState.properties = [];
-                    if(appState.currentMonthIndex === undefined) appState.currentMonthIndex = new Date().getMonth();
-                } catch(e) {
-                    console.error("Erro carregando os dados do LocalStorage", e);
+        // Inicializa o banco de dados e realiza a migração transparente do LocalStorage, caso exista
+        async function initDatabase() {
+            try {
+                const stored = localStorage.getItem('rent_app_data');
+                if (stored) {
+                    try {
+                        const oldData = JSON.parse(stored);
+                        if (oldData.properties && Array.isArray(oldData.properties) && oldData.properties.length > 0) {
+                            await db.properties.bulkPut(oldData.properties);
+                        }
+                        if (oldData.currentMonthIndex !== undefined) {
+                            appState.currentMonthIndex = oldData.currentMonthIndex;
+                        }
+                        // Remove do LocalStorage após migrar com sucesso
+                        localStorage.removeItem('rent_app_data');
+                    } catch(e) {
+                        console.error("Erro na migração do LocalStorage para IndexedDB:", e);
+                    }
                 }
+
+                await refreshLocalState();
+                renderMonthsMenu();
+                await renderContent();
+            } catch (err) {
+                console.error("Erro ao inicializar IndexedDB:", err);
             }
         }
 
-        function saveToStorage() {
-            localStorage.setItem('rent_app_data', JSON.stringify(appState));
-            showToast();
+        async function refreshLocalState() {
+            appState.properties = await db.properties.toArray();
         }
 
         function showToast() {
             const toast = document.getElementById('toast');
             const now = new Date();
             const timeStr = now.toTimeString().split(' ')[0];
-            document.getElementById('toast-text').innerText = `✓ Salvo automaticamente às ${timeStr}`;
+            document.getElementById('toast-text').innerText = `✓ Guardado no IndexedDB às ${timeStr}`;
             toast.classList.add('show');
             
             clearTimeout(window.toastTimeout);
@@ -813,13 +843,13 @@
             });
         }
 
-        function switchMonth(index) {
+        async function switchMonth(index) {
             appState.currentMonthIndex = index;
             renderMonthsMenu();
-            renderContent();
+            await renderContent();
         }
 
-        function addNewProperty() {
+        async function addNewProperty() {
             const propId = 'prop_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             const newProp = {
                 id: propId,
@@ -834,9 +864,9 @@
                 minimized: false,
                 createdInMonth: appState.currentMonthIndex
             };
-            appState.properties.unshift(newProp);
-            saveToStorage();
-            renderContent();
+            await db.properties.add(newProp);
+            showToast();
+            await renderContent();
 
             setTimeout(() => {
                 const firstCardInput = document.querySelector('#propertiesContainer .prop-title-input');
@@ -846,11 +876,11 @@
             }, 50);
         }
 
-        function removeProperty(id) {
+        async function removeProperty(id) {
             if(confirm("Tem certeza que deseja excluir permanentemente este imóvel?")) {
-                appState.properties = appState.properties.filter(p => p.id !== id);
-                saveToStorage();
-                renderContent();
+                await db.properties.delete(id);
+                showToast();
+                await renderContent();
             }
         }
 
@@ -989,28 +1019,32 @@
             return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
-        function handleNumberBlur(element, propId, fieldKey) {
+        async function handleNumberBlur(element, propId, fieldKey) {
             let val = element.value.replace(/\s/g, '').replace(',', '.');
+            const prop = appState.properties.find(p => p.id === propId);
+            if (!prop) return;
+
             if (val === '') {
-                appState.properties.find(p => p.id === propId)[fieldKey] = '';
+                prop[fieldKey] = '';
                 element.value = '';
             } else {
                 let parsed = parseFloat(val);
-                if (isNaN(parsed)) {
-                    parsed = 0;
-                }
-                appState.properties.find(p => p.id === propId)[fieldKey] = parsed.toFixed(2);
+                if (isNaN(parsed)) parsed = 0;
+                prop[fieldKey] = parsed.toFixed(2);
                 element.value = parsed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
-            saveToStorage();
+
+            await db.properties.put(prop);
+            showToast();
             updateDashboardAndTotals();
         }
 
-        function handleFieldChange(propId, fieldKey, value) {
+        async function handleFieldChange(propId, fieldKey, value) {
             const prop = appState.properties.find(p => p.id === propId);
             if(prop) {
                 prop[fieldKey] = value;
-                saveToStorage();
+                await db.properties.put(prop);
+                showToast();
 
                 if (fieldKey === 'date') {
                     if (value) {
@@ -1018,7 +1052,7 @@
                         const targetMonth = parseInt(parts[1], 10) - 1;
                         if (targetMonth !== appState.currentMonthIndex) {
                             alert(`Imóvel movido automaticamente para a aba de ${MONTHS[targetMonth]} conforme a data informada.`);
-                            renderContent();
+                            await renderContent();
                             return;
                         }
                     }
@@ -1027,11 +1061,12 @@
             }
         }
 
-        function toggleMinimize(propId) {
+        async function toggleMinimize(propId) {
             const prop = appState.properties.find(p => p.id === propId);
             if(prop) {
                 prop.minimized = !prop.minimized;
-                saveToStorage();
+                await db.properties.put(prop);
+                showToast();
                 
                 const card = document.getElementById(`card_${propId}`);
                 if(card) {
@@ -1046,26 +1081,33 @@
             }
         }
 
-        function setAllMinimization(shouldMinimize) {
-            getVisibleProperties().forEach(p => {
+        async function setAllMinimization(shouldMinimize) {
+            const visibleProps = getVisibleProperties();
+            for (let p of visibleProps) {
                 p.minimized = shouldMinimize;
-            });
-            saveToStorage();
-            renderContent();
+                await db.properties.put(p);
+            }
+            showToast();
+            await renderContent();
         }
 
-        function clearCurrentMonth() {
+        async function clearCurrentMonth() {
             if(confirm(`Tem certeza que deseja remover todos os imóveis cadastrados em ${MONTHS[appState.currentMonthIndex]}? Esta ação não pode ser desfeita.`)) {
                 const propertiesInMonth = getVisibleProperties();
                 const idsToRemove = propertiesInMonth.map(p => p.id);
-                appState.properties = appState.properties.filter(p => !idsToRemove.includes(p.id));
-                saveToStorage();
-                renderContent();
+                await db.properties.bulkDelete(idsToRemove);
+                showToast();
+                await renderContent();
             }
         }
 
-        function exportBackup() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
+        async function exportBackup() {
+            await refreshLocalState();
+            const exportData = {
+                currentMonthIndex: appState.currentMonthIndex,
+                properties: appState.properties
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
             const downloadAnchor = document.createElement('a');
             downloadAnchor.setAttribute("href", dataStr);
             downloadAnchor.setAttribute("download", `backup_controle_aluguel_${MONTHS[appState.currentMonthIndex]}.json`);
@@ -1079,15 +1121,21 @@
             if (!file) return;
             
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const importedData = JSON.parse(e.target.result);
                     if (importedData && Array.isArray(importedData.properties)) {
-                        appState = importedData;
-                        saveToStorage();
+                        await db.properties.clear();
+                        if (importedData.properties.length > 0) {
+                            await db.properties.bulkAdd(importedData.properties);
+                        }
+                        if (importedData.currentMonthIndex !== undefined) {
+                            appState.currentMonthIndex = importedData.currentMonthIndex;
+                        }
+                        await refreshLocalState();
                         renderMonthsMenu();
-                        renderContent();
-                        alert("Backup importado e restaurado com sucesso!");
+                        await renderContent();
+                        alert("Backup importado e restaurado com sucesso no IndexedDB!");
                     } else {
                         alert("Formato de arquivo de backup inválido.");
                     }
@@ -1105,7 +1153,15 @@
             window.print();
         }
 
-        function renderContent() {
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        async function renderContent() {
+            await refreshLocalState();
             const container = document.getElementById('propertiesContainer');
             container.innerHTML = '';
 
@@ -1134,7 +1190,7 @@
 
                 card.innerHTML = `
                     <div class="card-header">
-                        <input type="text" class="prop-title-input" value="${p.name}" placeholder="Nome do Imóvel/Identificação" onchange="handleFieldChange('${p.id}', 'name', this.value)" onkeydown="if(event.key === 'Enter' || event.keyCode === 13){ this.blur(); }">
+                        <input type="text" class="prop-title-input" value="${escapeHtml(p.name || '')}" placeholder="Nome do Imóvel/Identificação" onchange="handleFieldChange('${p.id}', 'name', this.value)" onkeydown="if(event.key === 'Enter' || event.keyCode === 13){ this.blur(); }">
                         <div class="card-controls">
                             <span class="minimized-summary" id="summary_${p.id}">Total: R$ 0,00</span>
                             <button class="btn btn-sm btn-dark" id="btnMin_${p.id}" onclick="toggleMinimize('${p.id}')">${p.minimized ? '▼ Expandir' : '▲ Minimizar'}</button>
@@ -1145,7 +1201,7 @@
                         <div class="form-grid">
                             <div class="form-row date-row">
                                 <label>Data de Recebimento</label>
-                                <input type="date" value="${p.date}" onchange="handleFieldChange('${p.id}', 'date', this.value)">
+                                <input type="date" value="${p.date || ''}" onchange="handleFieldChange('${p.id}', 'date', this.value)">
                             </div>
 
                             <div class="monetary-header-row">
@@ -1206,7 +1262,7 @@
 
                             <div class="form-row" style="grid-template-columns: 1fr; border:none; padding-top:10px;">
                                 <label style="margin-bottom:5px;">Observações Gerais / Histórico:</label>
-                                <textarea rows="2" placeholder="Digite observações sobre o pagamento ou manutenção..." onchange="handleFieldChange('${p.id}', 'observações', this.value)">${p.observações || ''}</textarea>
+                                <textarea rows="2" placeholder="Digite observações sobre o pagamento ou manutenção..." onchange="handleFieldChange('${p.id}', 'observações', this.value)">${escapeHtml(p.observações || '')}</textarea>
                             </div>
                         </div>
                     </div>
@@ -1218,9 +1274,7 @@
         }
 
         window.onload = function() {
-            loadFromStorage();
-            renderMonthsMenu();
-            renderContent();
+            initDatabase();
         };
     </script>
 </body>
