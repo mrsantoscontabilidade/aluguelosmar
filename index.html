@@ -790,19 +790,20 @@
         async function requestPersistentStorage() {
             if (navigator.storage && navigator.storage.persist) {
                 try {
-                    // 1. Verifica se já estava marcado como persistente anteriormente
                     const isAlreadyPersisted = await navigator.storage.persisted();
                     if (isAlreadyPersisted) {
-                        console.log("✓ O armazenamento JÁ ESTÁ marcado como persistente pelo navegador.");
+                        console.log("✓ O armazenamento JÁ ESTÁ marcado como persistente.");
+                        showToastCustom("✓ Banco de dados persistente (Protegido)");
                         return true;
                     }
 
-                    // 2. Solicita a ativação da persistência
                     const granted = await navigator.storage.persist();
                     if (granted) {
-                        console.log("✓ Armazenamento persistente ativado com sucesso pelo usuário/navegador!");
+                        console.log("✓ Armazenamento persistente ativado com sucesso!");
+                        showToastCustom("✓ Proteção contra exclusão ativada no navegador!");
                     } else {
-                        console.warn("⚠️ O navegador manteve o armazenamento como temporário (motivos comuns: arquivo aberto via file:// sem servidor local ou falta de engajamento prévio com o site).");
+                        console.warn("⚠️ O navegador manteve o armazenamento como temporário.");
+                        showToastCustom("⚠️ Armazenamento mantido como temporário pelo navegador");
                     }
                     return granted;
                 } catch (error) {
@@ -815,7 +816,18 @@
             }
         }
 
-        // Inicializa o banco de dados e realiza a migração transparente do LocalStorage, caso exista
+        function showToastCustom(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = msg;
+            toast.classList.add('show');
+            
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Inicializa o banco de dados e executa a verificação
         async function initDatabase() {
             try {
                 const isPersisted = await requestPersistentStorage();
@@ -830,7 +842,6 @@
                         if (oldData.currentMonthIndex !== undefined) {
                             appState.currentMonthIndex = oldData.currentMonthIndex;
                         }
-                        // Remove do LocalStorage após migrar com sucesso
                         localStorage.removeItem('rent_app_data');
                     } catch(e) {
                         console.error("Erro na migração do LocalStorage para IndexedDB:", e);
@@ -857,17 +868,6 @@
             const now = new Date();
             const timeStr = now.toTimeString().split(' ')[0];
             showToastCustom(`✓ Guardado no IndexedDB às ${timeStr}`);
-        }
-
-        function showToastCustom(msg) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toast-text').innerText = msg;
-            toast.classList.add('show');
-            
-            clearTimeout(window.toastTimeout);
-            window.toastTimeout = setTimeout(() => {
-                toast.classList.remove('show');
-            }, 2000);
         }
 
         function renderMonthsMenu() {
@@ -936,7 +936,6 @@
             });
         }
 
-        // Função de divisão exata: Pessoa 1 fica com o centavo excedente quando a quantia em centavos for ímpar
         function splitValue(val) {
             const cents = Math.round(val * 100);
             const p1Cents = Math.ceil(cents / 2);
@@ -972,7 +971,6 @@
                 const othExpSplit = splitValue(otherExp);
                 const totalSplit = splitValue(computedTotal);
 
-                // Acumuladores gerais para o Totalizador do Mês
                 sumRent += rent; sumP1Rent += rentSplit.p1; sumP2Rent += rentSplit.p2;
                 sumAdmin += adminTax; sumP1Admin += adminSplit.p1; sumP2Admin += adminSplit.p2;
                 sumElec += electricity; sumP1Elec += elecSplit.p1; sumP2Elec += elecSplit.p2;
@@ -1015,7 +1013,6 @@
                 }
             });
 
-            // Atualiza o Bloco Totalizador Geral
             const gtCard = document.getElementById('grandTotalCard');
             if (propertiesInMonth.length > 0) {
                 gtCard.style.display = 'block';
