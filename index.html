@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Recebimento de Aluguel</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #16a085;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --success: #27ae60;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #2c3e50;
+            --border: #dcdde1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding-bottom: 60px;
+        }
+
+        /* Sticky Header */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            background: var(--primary);
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Nav Months */
+        .months-nav {
+            display: flex;
+            background: #34495e;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .month-tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px 20px;
+            color: #bdc3c7;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            min-width: 90px;
+        }
+
+        .month-tab:hover {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .month-tab.active {
+            background: var(--secondary);
+            color: white;
+            border-bottom: 3px solid #fff;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        /* Global View Actions */
+        .view-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Property Card */
+        .property-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+            border: 2px solid var(--border);
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        /* Card Header */
+        .card-header {
+            background: #f1f2f6;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .prop-title-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 4px;
+        }
+
+        .prop-title-input:focus {
+            background: white;
+            border-color: var(--secondary);
+            outline: none;
+        }
+
+        .card-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Card Body Forms */
+        .card-body {
+            padding: 15px;
+        }
+
+        .property-card.minimized .card-body {
+            display: none;
+        }
+
+        .minimized-summary {
+            display: none;
+            background: #34495e;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .property-card.minimized .minimized-summary {
+            display: inline-block;
+        }
+
+        /* Form Grid Layout */
+        .form-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-row {
+            display: grid;
+            padding: 6px 0;
+            border-bottom: 1px dashed #f1f2f6;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-row.date-row {
+            grid-template-columns: 250px 1fr;
+        }
+
+        /* Na tela, cada item monetário exibe apenas Rótulo + Valor Principal */
+        .form-row.monetary-row {
+            grid-template-columns: 250px 1fr;
+        }
+
+        /* Oculta as colunas de Pessoa 1 e Pessoa 2 na tela normal */
+        .monetary-header-row,
+        .p1-col,
+        .p2-col {
+            display: none;
+        }
+
+        .form-row:last-child {
+            border-bottom: none;
+        }
+
+        .form-row label {
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        /* Red formatting for deductions */
+        .form-row.deduction label {
+            color: var(--danger);
+        }
+        .form-row.deduction input {
+            color: var(--danger);
+            border-color: #fadbd8;
+        }
+        .form-row.deduction input:focus {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
+        }
+
+        .form-row.total-row {
+            background: #eaeded;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .form-row input, .form-row textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-row input:focus, .form-row textarea:focus {
+            border-color: var(--secondary);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(22, 160, 133, 0.2);
+        }
+
+        .form-row input[readonly] {
+            background-color: #e9ecef;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-sm { padding: 5px 10px; font-size: 0.85rem; }
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-primary:hover { background: #117a65; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-dark { background: #34495e; color: white; }
+        .btn-dark:hover { background: #2c3e50; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: #7f8c8d; }
+        .btn-outline:hover { background: #eee; }
+
+        /* Toast Alert */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2ecc71;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 2000;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Print/PDF specific */
+        #print-header {
+            display: none;
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+        }
+
+        /* Responsive Mobile adjustments */
+        @media (max-width: 768px) {
+            .card-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .prop-title-input {
+                width: 100%;
+            }
+            .card-controls {
+                justify-content: flex-start;
+                width: 100%;
+            }
+            .form-row.date-row,
+            .form-row.monetary-row {
+                grid-template-columns: 1fr;
+            }
+            .form-row label {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* REGRAS ESPECÍFICAS PARA IMPRESSÃO E PDF */
+        @media print {
+            body { 
+                background: white; 
+                padding-bottom: 0; 
+                font-size: 11px;
+                color: #000;
+            }
+            .sticky-header, .view-actions, .card-controls, .btn, #toast, .months-nav {
+                display: none !important;
+            }
+            
+            #print-header {
+                display: block !important;
+            }
+            #print-header h2 {
+                font-size: 1.4rem;
+                margin-bottom: 4px;
+            }
+            #print-header p {
+                font-size: 0.85rem;
+                color: #555;
+            }
+
+            .container {
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .property-card {
+                page-break-inside: avoid;
+                border: 1px solid #bbb !important;
+                border-radius: 4px !important;
+                margin-bottom: 15px !important;
+                box-shadow: none !important;
+                background: white !important;
+            }
+            .property-card.minimized .card-body {
+                display: block !important;
+            }
+            .minimized-summary {
+                display: none !important;
+            }
+
+            .card-header {
+                background: #f0f0f0 !important;
+                padding: 6px 12px !important;
+                border-bottom: 1px solid #ccc !important;
+            }
+
+            .prop-title-input {
+                font-size: 1.05rem !important;
+                font-weight: bold !important;
+                color: #000 !important;
+                padding: 0 !important;
+            }
+
+            .card-body {
+                padding: 8px 12px !important;
+            }
+
+            /* EXIBE O CABEÇALHO DAS COLUNAS NO PDF */
+            .monetary-header-row {
+                display: grid !important;
+                grid-template-columns: 200px 1fr 1fr 1fr !important;
+                gap: 6px !important;
+                border-bottom: 1px solid #999 !important;
+                font-weight: bold !important;
+                font-size: 0.8rem !important;
+                padding: 4px 0 !important;
+            }
+
+            .form-grid {
+                gap: 2px !important;
+            }
+
+            /* FORMATA AS LINHAS COM AS 4 COLUNAS NO PDF */
+            .form-row.monetary-row {
+                display: grid !important;
+                grid-template-columns: 200px 1fr 1fr 1fr !important;
+                gap: 6px !important;
+                padding: 4px 0 !important;
+                border-bottom: 1px solid #eee !important;
+            }
+
+            /* EXIBE AS COLUNAS DA PESSOA 1 E PESSOA 2 NO PDF */
+            .p1-col, .p2-col {
+                display: block !important;
+            }
+
+            .form-row.date-row {
+                display: flex !important;
+                justify-content: space-between !important;
+                padding: 4px 0 !important;
+                border-bottom: 1px solid #eee !important;
+            }
+
+            .form-row:last-child {
+                border-bottom: none !important;
+            }
+
+            .form-row label {
+                font-size: 0.85rem !important;
+                color: #333 !important;
+                font-weight: 500 !important;
+            }
+
+            .form-row.deduction label {
+                color: #c0392b !important;
+            }
+
+            .form-row input, .form-row textarea {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                text-align: right !important;
+                font-size: 0.85rem !important;
+                font-weight: 600 !important;
+                box-shadow: none !important;
+            }
+
+            .form-row textarea {
+                text-align: left !important;
+                font-weight: normal !important;
+            }
+
+            ::-webkit-input-placeholder { color: transparent !important; }
+            :-moz-placeholder { color: transparent !important; }
+            ::-moz-placeholder { color: transparent !important; }
+            :-ms-input-placeholder { color: transparent !important; }
+            ::placeholder { color: transparent !important; }
+
+            .form-row.deduction input {
+                color: #c0392b !important;
+            }
+
+            .form-row.total-row {
+                background: #f5f5f5 !important;
+                padding: 6px 8px !important;
+                margin-top: 4px !important;
+                border-radius: 3px !important;
+                border-bottom: none !important;
+            }
+
+            .form-row.total-row label {
+                font-weight: bold !important;
+                color: #000 !important;
+            }
+
+            .form-row.total-row input {
+                font-size: 0.95rem !important;
+                color: #000 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="print-header">
+        <h2 id="print-month-title">Relatório de Recebimento de Aluguel</h2>
+        <p id="print-datetime"></p>
+    </div>
+
+    <!-- Sticky Header Menu -->
+    <div class="sticky-header">
+        <div class="header-main">
+            <div class="header-title">
+                <h1>Gestão Imobiliária Portátil</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="addNewProperty()">➕ Novo Imóvel</button>
+                <button class="btn btn-dark" onclick="exportPDF()">📄 Gerar PDF</button>
+                <button class="btn btn-outline" style="color:white; border-color:rgba(255,255,255,0.3);" onclick="exportBackup()">💾 Exportar Backup</button>
+                <button class="btn btn-outline" style="color:white; border-color:rgba(255,255,255,0.3);" onclick="document.getElementById('importFile').click()">📂 Importar Backup</button>
+                <input type="file" id="importFile" style="display:none" onchange="importBackup(event)" accept=".json">
+            </div>
+        </div>
+        
+        <!-- Months Navigation tabs -->
+        <div class="months-nav" id="monthsNav">
+            <!-- Rendered via JS -->
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Global View Utilities -->
+        <div class="view-actions">
+            <div>
+                <button class="btn btn-sm btn-outline" onclick="setAllMinimization(true)">▲ Minimizar Todos</button>
+                <button class="btn btn-sm btn-outline" onclick="setAllMinimization(false)">▼ Expandir Todos</button>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="clearCurrentMonth()">🗑️ Limpar Mês Atual</button>
+        </div>
+
+        <!-- Properties dynamic target container -->
+        <div id="propertiesContainer">
+            <!-- Dynamic Injection -->
+        </div>
+    </div>
+
+    <!-- Auto-save notification anchor toast -->
+    <div id="toast">
+        <span id="toast-text">✓ Salvo automaticamente</span>
+    </div>
+
+    <script>
+        const MONTHS = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+
+        let appState = {
+            currentMonthIndex: new Date().getMonth(),
+            properties: [] 
+        };
+
+        function loadFromStorage() {
+            const stored = localStorage.getItem('rent_app_data');
+            if (stored) {
+                try {
+                    appState = JSON.parse(stored);
+                    if(!appState.properties) appState.properties = [];
+                    if(appState.currentMonthIndex === undefined) appState.currentMonthIndex = new Date().getMonth();
+                } catch(e) {
+                    console.error("Erro carregando os dados do LocalStorage", e);
+                }
+            }
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('rent_app_data', JSON.stringify(appState));
+            showToast();
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            document.getElementById('toast-text').innerText = `✓ Salvo automaticamente às ${timeStr}`;
+            toast.classList.add('show');
+            
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 1500);
+        }
+
+        function renderMonthsMenu() {
+            const nav = document.getElementById('monthsNav');
+            nav.innerHTML = '';
+            MONTHS.forEach((m, idx) => {
+                const tab = document.createElement('div');
+                tab.className = `month-tab ${idx === appState.currentMonthIndex ? 'active' : ''}`;
+                tab.innerText = m;
+                tab.onclick = () => switchMonth(idx);
+                nav.appendChild(tab);
+            });
+        }
+
+        function switchMonth(index) {
+            appState.currentMonthIndex = index;
+            renderMonthsMenu();
+            renderContent();
+        }
+
+        function addNewProperty() {
+            const propId = 'prop_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const newProp = {
+                id: propId,
+                name: '',
+                date: '',
+                rent: '',
+                adminTax: '',
+                electricity: '',
+                water: '',
+                otherRevenue: '',
+                otherExpenses: '',
+                minimized: false,
+                createdInMonth: appState.currentMonthIndex
+            };
+            appState.properties.unshift(newProp);
+            saveToStorage();
+            renderContent();
+
+            setTimeout(() => {
+                const firstCardInput = document.querySelector('#propertiesContainer .prop-title-input');
+                if (firstCardInput) {
+                    firstCardInput.focus();
+                }
+            }, 50);
+        }
+
+        function removeProperty(id) {
+            if(confirm("Tem certeza que deseja excluir permanentemente este imóvel?")) {
+                appState.properties = appState.properties.filter(p => p.id !== id);
+                saveToStorage();
+                renderContent();
+            }
+        }
+
+        function getVisibleProperties() {
+            return appState.properties.filter(p => {
+                if (p.date) {
+                    const parts = p.date.split('-');
+                    if (parts.length === 3) {
+                        const monthIdx = parseInt(parts[1], 10) - 1;
+                        return monthIdx === appState.currentMonthIndex;
+                    }
+                }
+                return p.createdInMonth === appState.currentMonthIndex;
+            });
+        }
+
+        // Função de divisão exata: Pessoa 1 fica com o centavo excedente quando a quantia em centavos for ímpar
+        function splitValue(val) {
+            const cents = Math.round(val * 100);
+            const p1Cents = Math.ceil(cents / 2);
+            const p2Cents = cents - p1Cents;
+            return {
+                p1: p1Cents / 100,
+                p2: p2Cents / 100
+            };
+        }
+
+        function updateDashboardAndTotals() {
+            const propertiesInMonth = getVisibleProperties();
+
+            propertiesInMonth.forEach(p => {
+                const rent = parseFloat(p.rent) || 0;
+                const adminTax = parseFloat(p.adminTax) || 0;
+                const electricity = parseFloat(p.electricity) || 0;
+                const water = parseFloat(p.water) || 0;
+                const otherRev = parseFloat(p.otherRevenue) || 0;
+                const otherExp = parseFloat(p.otherExpenses) || 0;
+
+                const computedTotal = rent - adminTax + electricity + water + otherRev - otherExp;
+                
+                const totalInput = document.getElementById(`total_${p.id}`);
+                if(totalInput) {
+                    totalInput.value = formatCurrencyValue(computedTotal);
+                }
+
+                // Divisão exata do Total
+                const totalSplit = splitValue(computedTotal);
+                const p1TotalInput = document.getElementById(`p1_total_${p.id}`);
+                if(p1TotalInput) p1TotalInput.value = formatCurrencyValue(totalSplit.p1);
+
+                const p2TotalInput = document.getElementById(`p2_total_${p.id}`);
+                if(p2TotalInput) p2TotalInput.value = formatCurrencyValue(totalSplit.p2);
+
+                // Divisão exata de cada item monetário
+                const monetaryFields = [
+                    { key: 'rent', val: rent },
+                    { key: 'adminTax', val: adminTax },
+                    { key: 'electricity', val: electricity },
+                    { key: 'water', val: water },
+                    { key: 'otherRevenue', val: otherRev },
+                    { key: 'otherExpenses', val: otherExp }
+                ];
+
+                monetaryFields.forEach(f => {
+                    const split = splitValue(f.val);
+
+                    const p1El = document.getElementById(`p1_${f.key}_${p.id}`);
+                    if (p1El) p1El.value = formatCurrencyValue(split.p1);
+
+                    const p2El = document.getElementById(`p2_${f.key}_${p.id}`);
+                    if (p2El) p2El.value = formatCurrencyValue(split.p2);
+                });
+
+                const summaryBadge = document.getElementById(`summary_${p.id}`);
+                if(summaryBadge) {
+                    summaryBadge.innerText = `Total: R$ ${formatCurrencyValue(computedTotal)}`;
+                }
+            });
+        }
+
+        function formatCurrencyValue(num) {
+            return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function handleNumberBlur(element, propId, fieldKey) {
+            let val = element.value.replace(/\s/g, '').replace(',', '.');
+            if (val === '') {
+                appState.properties.find(p => p.id === propId)[fieldKey] = '';
+                element.value = '';
+            } else {
+                let parsed = parseFloat(val);
+                if (isNaN(parsed)) {
+                    parsed = 0;
+                }
+                appState.properties.find(p => p.id === propId)[fieldKey] = parsed.toFixed(2);
+                element.value = parsed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            saveToStorage();
+            updateDashboardAndTotals();
+        }
+
+        function handleFieldChange(propId, fieldKey, value) {
+            const prop = appState.properties.find(p => p.id === propId);
+            if(prop) {
+                prop[fieldKey] = value;
+                saveToStorage();
+
+                if (fieldKey === 'date') {
+                    if (value) {
+                        const parts = value.split('-');
+                        const targetMonth = parseInt(parts[1], 10) - 1;
+                        if (targetMonth !== appState.currentMonthIndex) {
+                            alert(`Imóvel movido automaticamente para a aba de ${MONTHS[targetMonth]} conforme a data informada.`);
+                            renderContent();
+                            return;
+                        }
+                    }
+                }
+                updateDashboardAndTotals();
+            }
+        }
+
+        function toggleMinimize(propId) {
+            const prop = appState.properties.find(p => p.id === propId);
+            if(prop) {
+                prop.minimized = !prop.minimized;
+                saveToStorage();
+                
+                const card = document.getElementById(`card_${propId}`);
+                if(card) {
+                    if(prop.minimized) {
+                        card.classList.add('minimized');
+                        document.getElementById(`btnMin_${propId}`).innerText = "▼ Expandir";
+                    } else {
+                        card.classList.remove('minimized');
+                        document.getElementById(`btnMin_${propId}`).innerText = "▲ Minimizar";
+                    }
+                }
+            }
+        }
+
+        function setAllMinimization(shouldMinimize) {
+            getVisibleProperties().forEach(p => {
+                p.minimized = shouldMinimize;
+            });
+            saveToStorage();
+            renderContent();
+        }
+
+        function clearCurrentMonth() {
+            if(confirm(`Tem certeza que deseja remover todos os imóveis cadastrados em ${MONTHS[appState.currentMonthIndex]}? Esta ação não pode ser desfeita.`)) {
+                const propertiesInMonth = getVisibleProperties();
+                const idsToRemove = propertiesInMonth.map(p => p.id);
+                appState.properties = appState.properties.filter(p => !idsToRemove.includes(p.id));
+                saveToStorage();
+                renderContent();
+            }
+        }
+
+        function exportBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_controle_aluguel_${MONTHS[appState.currentMonthIndex]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData && Array.isArray(importedData.properties)) {
+                        appState = importedData;
+                        saveToStorage();
+                        renderMonthsMenu();
+                        renderContent();
+                        alert("Backup importado e restaurado com sucesso!");
+                    } else {
+                        alert("Formato de arquivo de backup inválido.");
+                    }
+                } catch (err) {
+                    alert("Erro ao processar o arquivo de backup selecionado.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportPDF() {
+            document.getElementById('print-month-title').innerText = `Relatório de Recebimentos - Competência: ${MONTHS[appState.currentMonthIndex]}`;
+            const now = new Date();
+            document.getElementById('print-datetime').innerText = `Gerado em: ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
+            window.print();
+        }
+
+        function renderContent() {
+            const container = document.getElementById('propertiesContainer');
+            container.innerHTML = '';
+
+            const visibleProps = getVisibleProperties();
+
+            if(visibleProps.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:40px; color:#7f8c8d; background:white; border-radius:8px; border:2px dashed var(--border)">
+                    Nenhum imóvel cadastrado ou alocado em <strong>${MONTHS[appState.currentMonthIndex]}</strong>.<br><br>
+                    Clique em <strong>➕ Novo Imóvel</strong> no topo para iniciar os lançamentos.
+                </div>`;
+                updateDashboardAndTotals();
+                return;
+            }
+
+            visibleProps.forEach(p => {
+                const card = document.createElement('div');
+                card.id = `card_${p.id}`;
+                card.className = `property-card ${p.minimized ? 'minimized' : ''}`;
+
+                const displayRent = p.rent ? parseFloat(p.rent).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '';
+                const displayAdmin = p.adminTax ? parseFloat(p.adminTax).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '';
+                const displayElec = p.electricity ? parseFloat(p.electricity).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '';
+                const displayWater = p.water ? parseFloat(p.water).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '';
+                const displayOthRev = p.otherRevenue ? parseFloat(p.otherRevenue).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '';
+                const displayOthExp = p.otherExpenses ? parseFloat(p.otherExpenses).toLocaleString('pt-BR', {minimumFractionDigits:2}) : '';
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <input type="text" class="prop-title-input" value="${p.name}" placeholder="Nome do Imóvel/Identificação" onchange="handleFieldChange('${p.id}', 'name', this.value)" onkeydown="if(event.key === 'Enter' || event.keyCode === 13){ this.blur(); }">
+                        <div class="card-controls">
+                            <span class="minimized-summary" id="summary_${p.id}">Total: R$ 0,00</span>
+                            <button class="btn btn-sm btn-dark" id="btnMin_${p.id}" onclick="toggleMinimize('${p.id}')">${p.minimized ? '▼ Expandir' : '▲ Minimizar'}</button>
+                            <button class="btn btn-sm btn-danger" onclick="removeProperty('${p.id}')">🗑️ Excluir</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-grid">
+                            <div class="form-row date-row">
+                                <label>Data de Recebimento</label>
+                                <input type="date" value="${p.date}" onchange="handleFieldChange('${p.id}', 'date', this.value)">
+                            </div>
+
+                            <div class="monetary-header-row">
+                                <div>Item / Descrição</div>
+                                <div>Valor Principal</div>
+                                <div>Pessoa 1 (50%)</div>
+                                <div>Pessoa 2 (50%)</div>
+                            </div>
+
+                            <div class="form-row monetary-row">
+                                <label>Valor do Aluguel (R$)</label>
+                                <input type="text" value="${displayRent}" placeholder="0,00" onblur="handleNumberBlur(this, '${p.id}', 'rent')">
+                                <input type="text" id="p1_rent_${p.id}" class="p1-col" readonly placeholder="0,00">
+                                <input type="text" id="p2_rent_${p.id}" class="p2-col" readonly placeholder="0,00">
+                            </div>
+
+                            <div class="form-row monetary-row deduction">
+                                <label>Desconto Taxa de Administração (R$)</label>
+                                <input type="text" value="${displayAdmin}" placeholder="0,00" onblur="handleNumberBlur(this, '${p.id}', 'adminTax')">
+                                <input type="text" id="p1_adminTax_${p.id}" class="p1-col" readonly placeholder="0,00">
+                                <input type="text" id="p2_adminTax_${p.id}" class="p2-col" readonly placeholder="0,00">
+                            </div>
+
+                            <div class="form-row monetary-row">
+                                <label>Energia Elétrica (R$)</label>
+                                <input type="text" value="${displayElec}" placeholder="0,00" onblur="handleNumberBlur(this, '${p.id}', 'electricity')">
+                                <input type="text" id="p1_electricity_${p.id}" class="p1-col" readonly placeholder="0,00">
+                                <input type="text" id="p2_electricity_${p.id}" class="p2-col" readonly placeholder="0,00">
+                            </div>
+
+                            <div class="form-row monetary-row">
+                                <label>Água (R$)</label>
+                                <input type="text" value="${displayWater}" placeholder="0,00" onblur="handleNumberBlur(this, '${p.id}', 'water')">
+                                <input type="text" id="p1_water_${p.id}" class="p1-col" readonly placeholder="0,00">
+                                <input type="text" id="p2_water_${p.id}" class="p2-col" readonly placeholder="0,00">
+                            </div>
+
+                            <div class="form-row monetary-row">
+                                <label>Outras Receitas (R$)</label>
+                                <input type="text" value="${displayOthRev}" placeholder="0,00" onblur="handleNumberBlur(this, '${p.id}', 'otherRevenue')">
+                                <input type="text" id="p1_otherRevenue_${p.id}" class="p1-col" readonly placeholder="0,00">
+                                <input type="text" id="p2_otherRevenue_${p.id}" class="p2-col" readonly placeholder="0,00">
+                            </div>
+
+                            <div class="form-row monetary-row deduction">
+                                <label>Outras Despesas (R$)</label>
+                                <input type="text" value="${displayOthExp}" placeholder="0,00" onblur="handleNumberBlur(this, '${p.id}', 'otherExpenses')">
+                                <input type="text" id="p1_otherExpenses_${p.id}" class="p1-col" readonly placeholder="0,00">
+                                <input type="text" id="p2_otherExpenses_${p.id}" class="p2-col" readonly placeholder="0,00">
+                            </div>
+
+                            <div class="form-row monetary-row total-row">
+                                <label>TOTAL RECEBIDO (R$)</label>
+                                <input type="text" id="total_${p.id}" value="0,00" readonly>
+                                <input type="text" id="p1_total_${p.id}" class="p1-col" value="0,00" readonly>
+                                <input type="text" id="p2_total_${p.id}" class="p2-col" value="0,00" readonly>
+                            </div>
+
+                            <div class="form-row" style="grid-template-columns: 1fr; border:none; padding-top:10px;">
+                                <label style="margin-bottom:5px;">Observações Gerais / Histórico:</label>
+                                <textarea rows="2" placeholder="Digite observações sobre o pagamento ou manutenção..." onchange="handleFieldChange('${p.id}', 'observações', this.value)">${p.observações || ''}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            updateDashboardAndTotals();
+        }
+
+        window.onload = function() {
+            loadFromStorage();
+            renderMonthsMenu();
+            renderContent();
+        };
+    </script>
+</body>
+</html>
